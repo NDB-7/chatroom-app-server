@@ -2,3 +2,6 @@
 .DS_Store
 .env
 prisma/dev.*
+
+# Used in VSCode with REST Client extension
+test.rest

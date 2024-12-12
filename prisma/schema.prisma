@@ -14,7 +14,7 @@ model chatroom {
   id String @id @default(uuid())
   name String
   code String
-  password String?
+  password String? // Not currently in use!
   expiresAt DateTime
   users user[]
 }
