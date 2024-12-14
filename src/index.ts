@@ -21,18 +21,31 @@ app.get("/rooms/:code", (req, res) => {
 
 // Temporary map, will be replaced with database
 const userMap = new Map<string, string>();
+// Temporary set, will be replaced with database
+const userNameSet = new Set<string>(["You"]);
 
+// VALIDATE WITH ZOD LATER
 io.on("connection", socket => {
   const id = socket.id;
   console.log(`User ${id} connected`);
-  socket.on("setName", name => {
-    console.log(`User ${id} set their name to ${name}`);
-    userMap.set(id, name);
+  socket.on("setName", (name: string, callback) => {
+    const trimmedName = name.trim();
+    if (userNameSet.has(trimmedName)) {
+      console.log(`User ${id} attempted to set their name to ${trimmedName}`);
+      callback({
+        success: false,
+        message: "This name has been reserved or taken, try another one.",
+      });
+    } else {
+      console.log(`User ${id} set their name to ${trimmedName}`);
+      callback({ success: true });
+      userMap.set(id, trimmedName);
+    }
   });
   socket.on("sendMessage", message => {
     if (userMap.has(id)) {
       const name = userMap.get(id);
-      console.log(`${name} said ${message}`);
+      console.log(`${name} (${id}) said ${message}`);
       io.emit("receiveMessage", name, message);
     }
   });
