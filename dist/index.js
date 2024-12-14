@@ -38,6 +38,7 @@ io.on("connection", function (socket) {
             console.log("User ".concat(id, " set their name to ").concat(trimmedName));
             callback({ success: true });
             userMap.set(id, trimmedName);
+            userNameSet.add(trimmedName);
         }
     });
     socket.on("sendMessage", function (message) {

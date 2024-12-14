@@ -40,6 +40,7 @@ io.on("connection", socket => {
       console.log(`User ${id} set their name to ${trimmedName}`);
       callback({ success: true });
       userMap.set(id, trimmedName);
+      userNameSet.add(trimmedName);
     }
   });
   socket.on("sendMessage", message => {
