@@ -18,17 +18,17 @@ app.use(cors({ origin: "*" }));
 app.get("/rooms/:code", function (req, res) {
     res.send({ success: true, name: "Testing Room", expiresAt: 999999 });
 });
-// Temporary map, will be replaced with database
-var userMap = new Map();
-// Temporary set, will be replaced with database
-var userNameSet = new Set(["You"]);
+// Temporary map, will be replaced with database. HOLDS ONLINE USERS
+var onlineUsersMap = new Map();
+// Temporary set, will be replaced with database. HOLDS ALL USERS
+var allUsersSet = new Set();
 // VALIDATE WITH ZOD LATER
 io.on("connection", function (socket) {
     var id = socket.id;
     console.log("User ".concat(id, " connected"));
     socket.on("setName", function (name, callback) {
         var trimmedName = name.trim();
-        if (userNameSet.has(trimmedName)) {
+        if (allUsersSet.has(trimmedName) || trimmedName === "You") {
             console.log("User ".concat(id, " attempted to set their name to ").concat(trimmedName));
             callback({
                 success: false,
@@ -38,27 +38,41 @@ io.on("connection", function (socket) {
         else {
             console.log("User ".concat(id, " set their name to ").concat(trimmedName));
             callback({ success: true });
-            userMap.set(id, trimmedName);
-            userNameSet.add(trimmedName);
-            socket.emit("userJoined", trimmedName);
+            onlineUsersMap.set(id, trimmedName);
+            allUsersSet.add(trimmedName);
+            updateUserListForClients();
         }
     });
     socket.on("sendMessage", function (message) {
-        if (userMap.has(id)) {
-            var name_1 = userMap.get(id);
+        if (onlineUsersMap.has(id)) {
+            var name_1 = onlineUsersMap.get(id);
             console.log("User ".concat(id, " (").concat(name_1, ") said ").concat(message));
             io.emit("receiveMessage", name_1, message);
         }
     });
     socket.on("disconnect", function () {
-        if (userMap.has(id)) {
-            var name_2 = userMap.get(id);
+        if (onlineUsersMap.has(id)) {
+            var name_2 = onlineUsersMap.get(id);
             console.log("User ".concat(id, " (").concat(name_2, ") disconnected."));
-            userMap.delete(id);
+            onlineUsersMap.delete(id);
+            updateUserListForClients();
         }
-        else {
+        else
             console.log("User ".concat(id, " disconnected."));
-        }
     });
 });
 server.listen(4444, function () { return console.log("Server running on port 4444"); });
+function updateUserListForClients() {
+    var onlineUserList = [];
+    var offlineUserList = [];
+    // Only online users are stored in onlineUsersMap!
+    onlineUsersMap.forEach(function (name) {
+        onlineUserList.push(name);
+    });
+    allUsersSet.forEach(function (name) {
+        if (!onlineUserList.includes(name))
+            offlineUserList.push(name);
+    });
+    io.emit("updateUserList", onlineUserList, offlineUserList);
+    console.log(onlineUserList, offlineUserList);
+}

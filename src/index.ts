@@ -20,18 +20,19 @@ app.get("/rooms/:code", (req, res) => {
   res.send({ success: true, name: "Testing Room", expiresAt: 999999 });
 });
 
-// Temporary map, will be replaced with database
-const userMap = new Map<string, string>();
-// Temporary set, will be replaced with database
-const userNameSet = new Set<string>(["You"]);
+// Temporary map, will be replaced with database. HOLDS ONLINE USERS
+const onlineUsersMap = new Map<string, string>();
+// Temporary set, will be replaced with database. HOLDS ALL USERS
+const allUsersSet = new Set<string>();
 
 // VALIDATE WITH ZOD LATER
 io.on("connection", socket => {
   const id = socket.id;
   console.log(`User ${id} connected`);
+
   socket.on("setName", (name: string, callback) => {
     const trimmedName = name.trim();
-    if (userNameSet.has(trimmedName)) {
+    if (allUsersSet.has(trimmedName) || trimmedName === "You") {
       console.log(`User ${id} attempted to set their name to ${trimmedName}`);
       callback({
         success: false,
@@ -40,27 +41,45 @@ io.on("connection", socket => {
     } else {
       console.log(`User ${id} set their name to ${trimmedName}`);
       callback({ success: true });
-      userMap.set(id, trimmedName);
-      userNameSet.add(trimmedName);
-      socket.emit("userJoined", trimmedName);
+      onlineUsersMap.set(id, trimmedName);
+      allUsersSet.add(trimmedName);
+      updateUserListForClients();
     }
   });
+
   socket.on("sendMessage", message => {
-    if (userMap.has(id)) {
-      const name = userMap.get(id);
+    if (onlineUsersMap.has(id)) {
+      const name = onlineUsersMap.get(id);
       console.log(`User ${id} (${name}) said ${message}`);
       io.emit("receiveMessage", name, message);
     }
   });
+
   socket.on("disconnect", () => {
-    if (userMap.has(id)) {
-      const name = userMap.get(id);
+    if (onlineUsersMap.has(id)) {
+      const name = onlineUsersMap.get(id);
       console.log(`User ${id} (${name}) disconnected.`);
-      userMap.delete(id);
-    } else {
-      console.log(`User ${id} disconnected.`);
-    }
+      onlineUsersMap.delete(id);
+      updateUserListForClients();
+    } else console.log(`User ${id} disconnected.`);
   });
 });
 
 server.listen(4444, () => console.log("Server running on port 4444"));
+
+function updateUserListForClients() {
+  const onlineUserList: string[] = [];
+  const offlineUserList: string[] = [];
+
+  // Only online users are stored in onlineUsersMap!
+  onlineUsersMap.forEach(name => {
+    onlineUserList.push(name);
+  });
+
+  allUsersSet.forEach(name => {
+    if (!onlineUserList.includes(name)) offlineUserList.push(name);
+  });
+
+  io.emit("updateUserList", onlineUserList, offlineUserList);
+  console.log(onlineUserList, offlineUserList);
+}
