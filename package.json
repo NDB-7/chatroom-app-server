@@ -2,10 +2,11 @@
   "name": "chatroom-app-server",
   "version": "1.0.0",
   "main": "index.js",
+  "type": "module",
   "scripts": {
     "build": "tsc",
     "start": "tsc && node dist/index.js",
-    "dev": "tsc-watch src/index.ts --outDir dist --onSuccess \"node dist/index.js\""
+    "dev": "tsc-watch --outDir dist --onSuccess \"node dist/index.js\""
   },
   "keywords": [],
   "author": "",

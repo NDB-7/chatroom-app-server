@@ -1,7 +1,8 @@
 import { Server } from "socket.io";
-import * as express from "express";
-import * as http from "http";
-import * as cors from "cors";
+import express from "express";
+import http from "http";
+import cors from "cors";
+import { z } from "zod";
 
 const app = express();
 const server = http.createServer(app);
@@ -25,39 +26,47 @@ const onlineUsersMap = new Map<string, string>();
 // Temporary set, will be replaced with database. HOLDS ALL USERS
 const allUsersSet = new Set<string>();
 
+const nameSchema = z.string().min(1).max(20);
+const messageSchema = z.string().min(1).max(1000);
+
 // VALIDATE WITH ZOD LATER
 io.on("connection", socket => {
   const id = socket.id;
   console.log(`User ${id} connected`);
 
   socket.on("setName", (name: string, callback) => {
-    const trimmedName = name.trim();
-    if (allUsersSet.has(trimmedName) || trimmedName === "You") {
-      console.log(`User ${id} attempted to set their name to ${trimmedName}`);
-      callback({
-        success: false,
-        message: "This name has already been used, try another one.",
-      });
-    } else {
-      console.log(`User ${id} set their name to ${trimmedName}`);
-      callback({ success: true });
-      onlineUsersMap.set(id, trimmedName);
-      allUsersSet.add(trimmedName);
-      updateUserListForClients();
-      io.emit(
-        "receiveMessage",
-        undefined,
-        `${trimmedName} joined the chatroom.`,
-        true
-      );
+    const { success, data } = nameSchema.safeParse(name.trim());
+    if (success) {
+      if (allUsersSet.has(data) || data === "You") {
+        console.log(`User ${id} attempted to set their name to ${data}`);
+        callback({
+          success: false,
+          message: "This name has already been used, try another one.",
+        });
+      } else {
+        console.log(`User ${id} set their name to ${data}`);
+        callback({ success: true });
+        onlineUsersMap.set(id, data);
+        allUsersSet.add(data);
+        updateUserListForClients();
+        io.emit(
+          "receiveMessage",
+          undefined,
+          `${data} joined the chatroom.`,
+          true
+        );
+      }
     }
   });
 
-  socket.on("sendMessage", message => {
+  socket.on("sendMessage", (message: string) => {
     if (onlineUsersMap.has(id)) {
-      const name = onlineUsersMap.get(id);
-      console.log(`User ${id} (${name}) said ${message}`);
-      io.emit("receiveMessage", name, message, false);
+      const { success, data } = messageSchema.safeParse(message.trim());
+      if (success) {
+        const name = onlineUsersMap.get(id);
+        console.log(`User ${id} (${name}) said ${data}`);
+        io.emit("receiveMessage", name, data, false);
+      }
     }
   });
 
