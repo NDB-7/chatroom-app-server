@@ -9,6 +9,7 @@ const io = new Server(server, {
   cors: {
     origin: "*",
   },
+  connectionStateRecovery: {},
 });
 
 app.use(express.json());
@@ -34,20 +35,30 @@ io.on("connection", socket => {
       console.log(`User ${id} attempted to set their name to ${trimmedName}`);
       callback({
         success: false,
-        message: "This name has been reserved or taken, try another one.",
+        message: "This name has already been used, try another one.",
       });
     } else {
       console.log(`User ${id} set their name to ${trimmedName}`);
       callback({ success: true });
       userMap.set(id, trimmedName);
       userNameSet.add(trimmedName);
+      socket.emit("userJoined", trimmedName);
     }
   });
   socket.on("sendMessage", message => {
     if (userMap.has(id)) {
       const name = userMap.get(id);
-      console.log(`${name} (${id}) said ${message}`);
+      console.log(`User ${id} (${name}) said ${message}`);
       io.emit("receiveMessage", name, message);
+    }
+  });
+  socket.on("disconnect", () => {
+    if (userMap.has(id)) {
+      const name = userMap.get(id);
+      console.log(`User ${id} (${name}) disconnected.`);
+      userMap.delete(id);
+    } else {
+      console.log(`User ${id} disconnected.`);
     }
   });
 });

@@ -10,6 +10,7 @@ var io = new socket_io_1.Server(server, {
     cors: {
         origin: "*",
     },
+    connectionStateRecovery: {},
 });
 app.use(express.json());
 app.use(cors({ origin: "*" }));
@@ -31,7 +32,7 @@ io.on("connection", function (socket) {
             console.log("User ".concat(id, " attempted to set their name to ").concat(trimmedName));
             callback({
                 success: false,
-                message: "This name has been reserved or taken, try another one.",
+                message: "This name has already been used, try another one.",
             });
         }
         else {
@@ -39,13 +40,24 @@ io.on("connection", function (socket) {
             callback({ success: true });
             userMap.set(id, trimmedName);
             userNameSet.add(trimmedName);
+            socket.emit("userJoined", trimmedName);
         }
     });
     socket.on("sendMessage", function (message) {
         if (userMap.has(id)) {
             var name_1 = userMap.get(id);
-            console.log("".concat(name_1, " (").concat(id, ") said ").concat(message));
+            console.log("User ".concat(id, " (").concat(name_1, ") said ").concat(message));
             io.emit("receiveMessage", name_1, message);
+        }
+    });
+    socket.on("disconnect", function () {
+        if (userMap.has(id)) {
+            var name_2 = userMap.get(id);
+            console.log("User ".concat(id, " (").concat(name_2, ") disconnected."));
+            userMap.delete(id);
+        }
+        else {
+            console.log("User ".concat(id, " disconnected."));
         }
     });
 });
