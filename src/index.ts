@@ -44,6 +44,12 @@ io.on("connection", socket => {
       onlineUsersMap.set(id, trimmedName);
       allUsersSet.add(trimmedName);
       updateUserListForClients();
+      io.emit(
+        "receiveMessage",
+        undefined,
+        `${trimmedName} joined the chatroom.`,
+        true
+      );
     }
   });
 
@@ -51,7 +57,7 @@ io.on("connection", socket => {
     if (onlineUsersMap.has(id)) {
       const name = onlineUsersMap.get(id);
       console.log(`User ${id} (${name}) said ${message}`);
-      io.emit("receiveMessage", name, message);
+      io.emit("receiveMessage", name, message, false);
     }
   });
 
@@ -61,6 +67,7 @@ io.on("connection", socket => {
       console.log(`User ${id} (${name}) disconnected.`);
       onlineUsersMap.delete(id);
       updateUserListForClients();
+      io.emit("receiveMessage", undefined, `${name} left the chatroom.`, true);
     } else console.log(`User ${id} disconnected.`);
   });
 });
