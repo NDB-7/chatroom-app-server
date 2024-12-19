@@ -37,17 +37,28 @@ io.on("connection", socket => {
 
   socket.on("rejoin", (sessionId: string, callback) => {
     if (onlineUsersMap.has(sessionId)) {
-      sessionsMap.set(id, sessionId);
-      updateUserListForClients();
-      callback(onlineUsersMap.get(sessionId));
-      io.emit(
-        "receiveMessage",
-        undefined,
-        `${onlineUsersMap.get(sessionId)} rejoined the chatroom.`,
-        true
-      );
+      if (new Set(sessionsMap.values()).has(sessionId))
+        callback({
+          success: false,
+          message:
+            "You already have an active session in this browser, please close it before attempting to open the chatroom again.",
+        });
+      else {
+        sessionsMap.set(id, sessionId);
+        updateUserListForClients();
+        callback({
+          success: true,
+          name: onlineUsersMap.get(sessionId),
+        });
+        io.emit(
+          "receiveMessage",
+          undefined,
+          `${onlineUsersMap.get(sessionId)} rejoined the chatroom.`,
+          true
+        );
+      }
     } else {
-      callback("");
+      callback({ success: false });
     }
   });
 
