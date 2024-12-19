@@ -23,6 +23,7 @@ app.get("/rooms/:code", (req, res) => {
 
 // Temporary map, will be replaced with database. HOLDS ONLINE USERS
 const onlineUsersMap = new Map<string, string>();
+const sessionsMap = new Map<string, string>();
 // Temporary set, will be replaced with database. HOLDS ALL USERS
 const allUsersSet = new Set<string>();
 
@@ -33,6 +34,22 @@ const messageSchema = z.string().min(1).max(1000);
 io.on("connection", socket => {
   const id = socket.id;
   console.log(`User ${id} connected`);
+
+  socket.on("rejoin", (sessionId: string, callback) => {
+    if (onlineUsersMap.has(sessionId)) {
+      sessionsMap.set(id, sessionId);
+      updateUserListForClients();
+      callback(onlineUsersMap.get(sessionId));
+      io.emit(
+        "receiveMessage",
+        undefined,
+        `${onlineUsersMap.get(sessionId)} rejoined the chatroom.`,
+        true
+      );
+    } else {
+      callback("");
+    }
+  });
 
   socket.on("setName", (name: string, callback) => {
     const { success, data } = nameSchema.safeParse(name.trim());
@@ -45,8 +62,10 @@ io.on("connection", socket => {
         });
       } else {
         console.log(`User ${id} set their name to ${data}`);
-        callback({ success: true });
-        onlineUsersMap.set(id, data);
+        const sessionId = crypto.randomUUID();
+        callback({ success: true, sessionId });
+        onlineUsersMap.set(sessionId, data);
+        sessionsMap.set(id, sessionId);
         allUsersSet.add(data);
         updateUserListForClients();
         io.emit(
@@ -59,11 +78,11 @@ io.on("connection", socket => {
     }
   });
 
-  socket.on("sendMessage", (message: string) => {
-    if (onlineUsersMap.has(id)) {
+  socket.on("sendMessage", (message: string, sessionId: string) => {
+    if (onlineUsersMap.has(sessionId)) {
       const { success, data } = messageSchema.safeParse(message.trim());
       if (success) {
-        const name = onlineUsersMap.get(id);
+        const name = onlineUsersMap.get(sessionId);
         console.log(`User ${id} (${name}) said ${data}`);
         io.emit("receiveMessage", name, data, false);
       }
@@ -71,10 +90,11 @@ io.on("connection", socket => {
   });
 
   socket.on("disconnect", () => {
-    if (onlineUsersMap.has(id)) {
-      const name = onlineUsersMap.get(id);
+    if (sessionsMap.has(id)) {
+      const sessionId = sessionsMap.get(id);
+      const name = onlineUsersMap.get(sessionId);
       console.log(`User ${id} (${name}) disconnected.`);
-      onlineUsersMap.delete(id);
+      sessionsMap.delete(id);
       updateUserListForClients();
       io.emit("receiveMessage", undefined, `${name} left the chatroom.`, true);
     } else console.log(`User ${id} disconnected.`);
@@ -88,8 +108,8 @@ function updateUserListForClients() {
   const offlineUserList: string[] = [];
 
   // Only online users are stored in onlineUsersMap!
-  onlineUsersMap.forEach(name => {
-    onlineUserList.push(name);
+  onlineUsersMap.forEach((name, sessionId) => {
+    if (new Set(sessionsMap.values()).has(sessionId)) onlineUserList.push(name);
   });
 
   allUsersSet.forEach(name => {
