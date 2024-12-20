@@ -11,6 +11,7 @@ const io = new Server(server, {
     },
     connectionStateRecovery: {},
 });
+const PORT = process.env.PORT || 4444;
 app.use(express.json());
 app.use(cors({ origin: "*" }));
 // Dummy data for now. Later, it'll search a map for an active chatroom
@@ -91,7 +92,7 @@ io.on("connection", socket => {
             console.log(`User ${id} disconnected.`);
     });
 });
-server.listen(4444, () => console.log("Server running on port 4444"));
+server.listen(PORT, () => console.log(`Server running on port ${PORT}`));
 function updateUserListForClients() {
     const onlineUserList = [];
     const offlineUserList = [];
