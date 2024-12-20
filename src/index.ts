@@ -12,12 +12,13 @@ const io = new Server(server, {
   },
   connectionStateRecovery: {},
 });
+const PORT = process.env.PORT || 4444;
 
 app.use(express.json());
 app.use(cors({ origin: "*" }));
 
 // Dummy data for now. Later, it'll search a map for an active chatroom
-app.get("/rooms/:code", (req, res) => {
+app.get("/rooms/:code", (_, res) => {
   res.send({ success: true, name: "Testing Room", expiresAt: 999999 });
 });
 
@@ -28,7 +29,6 @@ const allUsersSet = new Set<string>();
 const nameSchema = z.string().min(1).max(20);
 const messageSchema = z.string().min(1).max(1000);
 
-// VALIDATE WITH ZOD LATER
 io.on("connection", socket => {
   const id = socket.id;
   console.log(`User ${id} connected`);
@@ -110,7 +110,7 @@ io.on("connection", socket => {
   });
 });
 
-server.listen(4444, () => console.log("Server running on port 4444"));
+server.listen(PORT, () => console.log(`Server running on port ${PORT}`));
 
 function updateUserListForClients() {
   const onlineUserList: string[] = [];
@@ -126,5 +126,4 @@ function updateUserListForClients() {
   });
 
   io.emit("updateUserList", onlineUserList, offlineUserList);
-  console.log(onlineUserList, offlineUserList);
 }

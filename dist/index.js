@@ -13,18 +13,15 @@ const io = new Server(server, {
 });
 app.use(express.json());
 app.use(cors({ origin: "*" }));
-// Dummy data for now. Later, it'll search the database for an active chatroom
-app.get("/rooms/:code", (req, res) => {
+// Dummy data for now. Later, it'll search a map for an active chatroom
+app.get("/rooms/:code", (_, res) => {
     res.send({ success: true, name: "Testing Room", expiresAt: 999999 });
 });
-// Temporary map, will be replaced with database. HOLDS ONLINE USERS
 const onlineUsersMap = new Map();
 const sessionsMap = new Map();
-// Temporary set, will be replaced with database. HOLDS ALL USERS
 const allUsersSet = new Set();
 const nameSchema = z.string().min(1).max(20);
 const messageSchema = z.string().min(1).max(1000);
-// VALIDATE WITH ZOD LATER
 io.on("connection", socket => {
     const id = socket.id;
     console.log(`User ${id} connected`);
@@ -108,6 +105,5 @@ function updateUserListForClients() {
             offlineUserList.push(name);
     });
     io.emit("updateUserList", onlineUserList, offlineUserList);
-    console.log(onlineUserList, offlineUserList);
 }
 //# sourceMappingURL=index.js.map
