@@ -45,11 +45,10 @@ const messageSchema = z.string().min(1).max(1000);
 
 io.on("connection", socket => {
   const id = socket.id;
-  const testRoom = activeRoomsMap.get("test");
-  const { onlineUsersMap, sessionsMap, allUsersSet } = testRoom;
   console.log(`User ${id} connected`);
 
   socket.on("rejoin", (session, callback) => {
+    const { onlineUsersMap, sessionsMap } = activeRoomsMap.get(session.room);
     if (onlineUsersMap.has(session.id)) {
       if (new Set(sessionsMap.values()).has(session.id))
         callback({
@@ -59,12 +58,13 @@ io.on("connection", socket => {
         });
       else {
         sessionsMap.set(id, session.id);
-        updateUserListForClients("test");
+        socket.join(session.room);
+        updateUserListForClients(session.room);
         callback({
           success: true,
           name: onlineUsersMap.get(session.id),
         });
-        io.to("test").emit(
+        io.to(session.room).emit(
           "receiveMessage",
           undefined,
           `${onlineUsersMap.get(session.id)} rejoined the chatroom.`,
@@ -76,8 +76,11 @@ io.on("connection", socket => {
     }
   });
 
-  socket.on("setName", (name: string, callback) => {
+  socket.on("setName", (name: string, room: string, callback) => {
     const { success, data } = nameSchema.safeParse(name.trim());
+    const { onlineUsersMap, sessionsMap, allUsersSet } =
+      activeRoomsMap.get(room);
+
     if (success) {
       if (allUsersSet.has(data) || data === "You") {
         console.log(`User ${id} attempted to set their name to ${data}`);
@@ -92,8 +95,9 @@ io.on("connection", socket => {
         onlineUsersMap.set(sessionId, data);
         sessionsMap.set(id, sessionId);
         allUsersSet.add(data);
-        updateUserListForClients("test");
-        io.to("test").emit(
+        socket.join(room);
+        updateUserListForClients(room);
+        io.to(room).emit(
           "receiveMessage",
           undefined,
           `${data} joined the chatroom.`,
@@ -104,18 +108,22 @@ io.on("connection", socket => {
   });
 
   socket.on("sendMessage", (message: string, session) => {
-    console.log(session);
-    if (session && onlineUsersMap.has(session.id)) {
-      const { success, data } = messageSchema.safeParse(message.trim());
-      if (success) {
-        const name = onlineUsersMap.get(session.id);
-        console.log(`User ${id} (${name}) said ${data}`);
-        io.to("test").emit("receiveMessage", name, data, false);
+    if (session) {
+      const { onlineUsersMap } = activeRoomsMap.get(session.room);
+      if (onlineUsersMap.has(session.id)) {
+        const { success, data } = messageSchema.safeParse(message.trim());
+        if (success) {
+          const name = onlineUsersMap.get(session.id);
+          console.log(`User ${id} (${name}) said ${data}`);
+          io.to(session.room).emit("receiveMessage", name, data, false);
+        }
       }
     }
   });
 
   socket.on("disconnect", () => {
+    const { onlineUsersMap, sessionsMap } = activeRoomsMap.get("test");
+
     if (sessionsMap.has(id)) {
       const sessionId = sessionsMap.get(id);
       const name = onlineUsersMap.get(sessionId);
