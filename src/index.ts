@@ -18,13 +18,18 @@ const PORT = process.env.PORT || 4444;
 app.use(express.json());
 app.use(cors({ origin: "*" }));
 
-const activeRoomsMap = new Map([["test", {
-  // Dummy data. Later, a TS type will be defined
-  data: { name: "Testing Room", expiresAt: Date.now() + 3600000 },
-  onlineUsersMap: new Map<string, string>(),
-  sessionsMap: new Map<string, string>(),
-  allUsersSet: new Set<string>(),
-}]]);
+const activeRoomsMap = new Map([
+  [
+    "test",
+    {
+      // Dummy data. Later, a TS type will be defined
+      data: { name: "Testing Room", expiresAt: Date.now() + 3600000 },
+      onlineUsersMap: new Map<string, string>(),
+      sessionsMap: new Map<string, string>(),
+      allUsersSet: new Set<string>(),
+    },
+  ],
+]);
 
 app.get("/rooms/:code", (req, res) => {
   const room = activeRoomsMap.get(req.params.code);
@@ -35,16 +40,14 @@ app.get("/rooms/:code", (req, res) => {
 });
 
 // SWAP SESSIONS WITH JWTS THAT CONTAIN ROOM CODE AND SESSION ID
-// REPLACE SESSIONID WITH SESSION OBJECT CONTAINING ID AND CODE
 const nameSchema = z.string().min(1).max(20);
 const messageSchema = z.string().min(1).max(1000);
 
 io.on("connection", socket => {
   const id = socket.id;
-  const testRoom = activeRoomsMap.get("test")
-  const { onlineUsersMap, sessionsMap, allUsersSet } = testRoom
+  const testRoom = activeRoomsMap.get("test");
+  const { onlineUsersMap, sessionsMap, allUsersSet } = testRoom;
   console.log(`User ${id} connected`);
-  socket.join("test")
 
   socket.on("rejoin", (session, callback) => {
     if (onlineUsersMap.has(session.id)) {
@@ -101,7 +104,8 @@ io.on("connection", socket => {
   });
 
   socket.on("sendMessage", (message: string, session) => {
-    if (onlineUsersMap.has(session.id)) {
+    console.log(session);
+    if (session && onlineUsersMap.has(session.id)) {
       const { success, data } = messageSchema.safeParse(message.trim());
       if (success) {
         const name = onlineUsersMap.get(session.id);
@@ -118,7 +122,12 @@ io.on("connection", socket => {
       console.log(`User ${id} (${name}) disconnected.`);
       sessionsMap.delete(id);
       updateUserListForClients("test");
-      io.to("test").emit("receiveMessage", undefined, `${name} left the chatroom.`, true);
+      io.to("test").emit(
+        "receiveMessage",
+        undefined,
+        `${name} left the chatroom.`,
+        true
+      );
     } else console.log(`User ${id} disconnected.`);
   });
 });
