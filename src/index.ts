@@ -36,6 +36,8 @@ app.get("/rooms/:code", (req, res) => {
 
   if (room) {
     res.send({ success: true, ...room.data });
+  } else {
+    res.status(404).send({ success: false });
   }
 });
 
@@ -91,7 +93,7 @@ io.on("connection", socket => {
       } else {
         console.log(`User ${id} set their name to ${data}`);
         const sessionId = crypto.randomUUID();
-        callback({ success: true, session: { room: "test", id: sessionId } });
+        callback({ success: true, session: { room, id: sessionId } });
         onlineUsersMap.set(sessionId, data);
         sessionsMap.set(id, sessionId);
         allUsersSet.add(data);
@@ -122,15 +124,23 @@ io.on("connection", socket => {
   });
 
   socket.on("disconnect", () => {
-    const { onlineUsersMap, sessionsMap } = activeRoomsMap.get("test");
+    let code: string;
 
-    if (sessionsMap.has(id)) {
+    activeRoomsMap.forEach((room, roomCode) => {
+      if (room.sessionsMap.has(id)) {
+        code = roomCode;
+      }
+    });
+
+    if (code) {
+      const { onlineUsersMap, sessionsMap } = activeRoomsMap.get(code);
+
       const sessionId = sessionsMap.get(id);
       const name = onlineUsersMap.get(sessionId);
       console.log(`User ${id} (${name}) disconnected.`);
       sessionsMap.delete(id);
-      updateUserListForClients("test");
-      io.to("test").emit(
+      updateUserListForClients(code);
+      io.to(code).emit(
         "receiveMessage",
         undefined,
         `${name} left the chatroom.`,
