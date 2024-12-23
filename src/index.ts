@@ -3,6 +3,7 @@ import express from "express";
 import http from "http";
 import cors from "cors";
 import { z } from "zod";
+import { ActiveRoomType, ServerMessageType } from "./types.js";
 
 const app = express();
 const server = http.createServer(app);
@@ -18,22 +19,9 @@ const PORT = process.env.PORT || 4444;
 app.use(express.json());
 app.use(cors({ origin: "*" }));
 
-const activeRoomsMap = new Map([
-  [
-    "test",
-    {
-      // Dummy data. Later, a TS type will be defined
-      data: {
-        name: "Testing Room",
-        createdAt: Date.now(),
-        expiresAt: Date.now() + 3600000,
-      },
-      sessionToUsersMap: new Map<string, string>(),
-      activeSessionsMap: new Map<string, string>(),
-      allUsersSet: new Set<string>(),
-    },
-  ],
-]);
+const activeRoomsMap = new Map<string, ActiveRoomType>();
+// REMOVE LATER
+createRoom("test", "Testing Room");
 
 app.get("/rooms/:code", (req, res) => {
   const room = activeRoomsMap.get(req.params.code);
@@ -52,16 +40,7 @@ app.get("/rooms/:code", (req, res) => {
 app.post("/rooms", (req, res) => {
   const code = generateUniqueCode();
 
-  activeRoomsMap.set(code, {
-    data: {
-      name: req.body.name,
-      createdAt: Date.now(),
-      expiresAt: Date.now() + 3600000,
-    },
-    sessionToUsersMap: new Map<string, string>(),
-    activeSessionsMap: new Map<string, string>(),
-    allUsersSet: new Set<string>(),
-  });
+  createRoom(code, req.body.name);
 
   res.send(code);
 });
@@ -76,9 +55,8 @@ io.on("connection", socket => {
 
   socket.on("rejoin", (session, callback) => {
     if (activeRoomsMap.has(session.room)) {
-      const { sessionToUsersMap, activeSessionsMap } = activeRoomsMap.get(
-        session.room
-      );
+      const { sessionToUsersMap, activeSessionsMap, messagesCache } =
+        activeRoomsMap.get(session.room);
       if (sessionToUsersMap.has(session.id)) {
         if (new Set(activeSessionsMap.values()).has(session.id))
           callback({
@@ -95,12 +73,14 @@ io.on("connection", socket => {
             success: true,
             name: sessionToUsersMap.get(session.id),
           });
-          io.to(session.room).emit(
-            "receiveMessage",
-            undefined,
-            `${sessionToUsersMap.get(session.id)} rejoined the chatroom.`,
-            true
-          );
+          messagesCache.forEach(msg => socket.emit("receiveMessage", msg));
+          const message: ServerMessageType = {
+            content: `${sessionToUsersMap.get(
+              session.id
+            )} rejoined the chatroom.`,
+            serverNotification: true,
+          };
+          io.to(session.room).emit("receiveMessage", message);
         }
       } else {
         callback({ success: false });
@@ -116,7 +96,7 @@ io.on("connection", socket => {
 
   socket.on("setName", (name: string, room: string, callback) => {
     const { success, data } = nameSchema.safeParse(name.trim());
-    const { sessionToUsersMap, activeSessionsMap, allUsersSet } =
+    const { sessionToUsersMap, activeSessionsMap, allUsersSet, messagesCache } =
       activeRoomsMap.get(room);
 
     if (success) {
@@ -134,32 +114,37 @@ io.on("connection", socket => {
         activeSessionsMap.set(id, sessionId);
         allUsersSet.add(data);
         socket.join(room);
+        messagesCache.forEach(msg => socket.emit("receiveMessage", msg));
         updateUserListForClients(room);
-        io.to(room).emit(
-          "receiveMessage",
-          undefined,
-          `${data} joined the chatroom.`,
-          true
-        );
+        const message: ServerMessageType = {
+          content: `${data} joined the chatroom.`,
+          serverNotification: true,
+        };
+        io.to(room).emit("receiveMessage", message);
       }
     }
   });
 
-  socket.on("sendMessage", (message: string, session) => {
+  socket.on("sendMessage", (messageText: string, session) => {
     if (session) {
-      const { sessionToUsersMap } = activeRoomsMap.get(session.room);
+      const { sessionToUsersMap, messagesCache } = activeRoomsMap.get(
+        session.room
+      );
       if (sessionToUsersMap.has(session.id)) {
-        const { success, data } = messageSchema.safeParse(message.trim());
+        const { success, data } = messageSchema.safeParse(messageText.trim());
         if (success) {
           const name = sessionToUsersMap.get(session.id);
           console.log(`User ${id} (${name}) said ${data}`);
-          io.to(session.room).emit(
-            "receiveMessage",
-            name,
-            data,
-            false,
-            Date.now()
-          );
+          const message: ServerMessageType = {
+            sender: name,
+            content: data,
+            serverNotification: false,
+            sentAt: Date.now(),
+          };
+          io.to(session.room).emit("receiveMessage", message);
+          message.cache = true;
+          messagesCache.push(message);
+          if (messagesCache.length > 10) messagesCache.shift();
         }
       }
     }
@@ -182,12 +167,11 @@ io.on("connection", socket => {
       console.log(`User ${id} (${name}) disconnected.`);
       activeSessionsMap.delete(id);
       updateUserListForClients(code);
-      io.to(code).emit(
-        "receiveMessage",
-        undefined,
-        `${name} left the chatroom.`,
-        true
-      );
+      const message: ServerMessageType = {
+        content: `${name} left the chatroom.`,
+        serverNotification: true,
+      };
+      io.to(code).emit("receiveMessage", message);
     } else console.log(`User ${id} disconnected.`);
   });
 });
@@ -247,5 +231,21 @@ function roomCleanup() {
     }
   });
 }
+
+function createRoom(code: string, name: string) {
+  activeRoomsMap.set(code, {
+    data: {
+      name,
+      createdAt: Date.now(),
+      expiresAt: Date.now() + 3600000,
+    },
+    sessionToUsersMap: new Map<string, string>(),
+    activeSessionsMap: new Map<string, string>(),
+    allUsersSet: new Set<string>(),
+    messagesCache: [],
+  });
+}
+
+function emitMessage(message: ServerMessageType) {}
 
 setInterval(roomCleanup, 5000);
