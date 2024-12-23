@@ -128,7 +128,7 @@ io.on("connection", socket => {
                 if (success) {
                     const name = sessionToUsersMap.get(session.id);
                     console.log(`User ${id} (${name}) said ${data}`);
-                    io.to(session.room).emit("receiveMessage", name, data, false);
+                    io.to(session.room).emit("receiveMessage", name, data, false, Date.now());
                 }
             }
         }
