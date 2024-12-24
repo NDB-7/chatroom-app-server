@@ -12,11 +12,15 @@ const io = new Server(server, {
     connectionStateRecovery: {},
 });
 const PORT = process.env.PORT || 4444;
+// Rate limiting constants
+const MESSAGE_LIMIT = 5;
+const TIME_WINDOW = 2500; // milliseconds
 app.use(express.json());
 app.use(cors({ origin: "*" }));
 const activeRoomsMap = new Map();
 // REMOVE LATER
 createRoom("test", "Testing Room");
+const rateLimitMap = new Map();
 app.get("/rooms/:code", (req, res) => {
     const room = activeRoomsMap.get(req.params.code);
     if (room) {
@@ -108,28 +112,30 @@ io.on("connection", socket => {
             }
         }
     });
-    socket.on("sendMessage", (messageText, session) => {
-        if (session) {
-            const { sessionToUsersMap, messagesCache } = activeRoomsMap.get(session.room);
-            if (sessionToUsersMap.has(session.id)) {
-                const { success, data } = messageSchema.safeParse(messageText.trim());
-                if (success) {
-                    const name = sessionToUsersMap.get(session.id);
-                    console.log(`User ${id} (${name}) said ${data}`);
-                    const message = {
-                        sender: name,
-                        content: data,
-                        serverNotification: false,
-                        sentAt: Date.now(),
-                    };
-                    io.to(session.room).emit("receiveMessage", message);
-                    message.cache = true;
-                    messagesCache.push(message);
-                    if (messagesCache.length > 10)
-                        messagesCache.shift();
+    socket.on("sendMessage", (messageText, session, callback) => {
+        rateLimit(id, callback, () => {
+            if (session) {
+                const { sessionToUsersMap, messagesCache } = activeRoomsMap.get(session.room);
+                if (sessionToUsersMap.has(session.id)) {
+                    const { success, data } = messageSchema.safeParse(messageText.trim());
+                    if (success) {
+                        const name = sessionToUsersMap.get(session.id);
+                        console.log(`User ${id} (${name}) said ${data}`);
+                        const message = {
+                            sender: name,
+                            content: data,
+                            serverNotification: false,
+                            sentAt: Date.now(),
+                        };
+                        io.to(session.room).emit("receiveMessage", message);
+                        message.cache = true;
+                        messagesCache.push(message);
+                        if (messagesCache.length > 10)
+                            messagesCache.shift();
+                    }
                 }
             }
-        }
+        });
     });
     socket.on("disconnect", () => {
         let code;
@@ -138,6 +144,7 @@ io.on("connection", socket => {
                 code = roomCode;
             }
         });
+        rateLimitMap.delete(id);
         if (code) {
             const { sessionToUsersMap, activeSessionsMap } = activeRoomsMap.get(code);
             const sessionId = activeSessionsMap.get(id);
@@ -211,6 +218,21 @@ function createRoom(code, name) {
         allUsersSet: new Set(),
         messagesCache: [],
     });
+}
+function rateLimit(id, callback, emit) {
+    const now = Date.now();
+    if (!rateLimitMap.has(id))
+        rateLimitMap.set(id, []);
+    const timestamps = rateLimitMap.get(id);
+    const recentTimestamps = timestamps.filter(timestamp => now - timestamp < TIME_WINDOW);
+    recentTimestamps.push(now);
+    rateLimitMap.set(id, recentTimestamps);
+    if (recentTimestamps.length > MESSAGE_LIMIT)
+        callback(true);
+    else {
+        callback(false);
+        emit();
+    }
 }
 function emitMessage(message) { }
 setInterval(roomCleanup, 5000);
