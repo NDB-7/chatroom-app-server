@@ -1,7 +1,10 @@
-import { app } from "../config/server.js";
+import express from "express";
 import getRooms from "./getRooms.js";
 import postRoom from "./postRoom.js";
 
-app.get("/rooms/:code", getRooms);
+const router = express.Router();
 
-app.post("/rooms", postRoom);
+router.get("/rooms/:code", getRooms);
+router.post("/rooms", postRoom);
+
+export default router;

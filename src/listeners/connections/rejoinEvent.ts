@@ -1,7 +1,7 @@
 import { Socket } from "socket.io";
 import activeRoomsMap from "../../config/activeRoomsMap.js";
 import updateUserListForClients from "../../rooms/updateUserListForClients.js";
-import { io } from "../../config/server.js";
+import { io } from "../../index.js";
 import { ServerMessageType } from "../../types.js";
 
 export default function rejoinEvent(socket: Socket) {

@@ -3,7 +3,7 @@ import rateLimit from "../../middleware/rateLimit.js";
 import activeRoomsMap from "../../config/activeRoomsMap.js";
 import { z } from "zod";
 import { ServerMessageType } from "../../types.js";
-import { io } from "../../config/server.js";
+import { io } from "../../index.js";
 
 const messageSchema = z.string().min(1).max(1000);
 

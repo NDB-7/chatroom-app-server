@@ -1,6 +1,6 @@
 import activeRoomsMap from "../../config/activeRoomsMap.js";
 import updateUserListForClients from "../../rooms/updateUserListForClients.js";
-import { io } from "../../config/server.js";
+import { io } from "../../index.js";
 export default function rejoinEvent(socket) {
     const id = socket.id;
     socket.on("rejoin", (session, callback) => {

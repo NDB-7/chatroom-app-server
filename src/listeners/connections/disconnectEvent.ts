@@ -3,7 +3,7 @@ import activeRoomsMap from "../../config/activeRoomsMap.js";
 import { rateLimitMap } from "../../middleware/rateLimit.js";
 import updateUserListForClients from "../../rooms/updateUserListForClients.js";
 import { ServerMessageType } from "../../types.js";
-import { io } from "../../config/server.js";
+import { io } from "../../index.js";
 export default function disconnectEvent(socket: Socket) {
   const id = socket.id;
 

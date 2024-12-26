@@ -1,6 +1,8 @@
-import { app } from "../config/server.js";
+import express from "express";
 import getRooms from "./getRooms.js";
 import postRoom from "./postRoom.js";
-app.get("/rooms/:code", getRooms);
-app.post("/rooms", postRoom);
+const router = express.Router();
+router.get("/rooms/:code", getRooms);
+router.post("/rooms", postRoom);
+export default router;
 //# sourceMappingURL=router.js.map

@@ -1,5 +1,5 @@
 import activeRoomsMap from "../config/activeRoomsMap.js";
-import { io } from "../config/server.js";
+import { io } from "../index.js";
 export default function updateUserListForClients(room) {
     const onlineUserList = [];
     const offlineUserList = [];

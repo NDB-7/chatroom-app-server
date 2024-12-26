@@ -1,12 +1,12 @@
-import rejoinEvent from "./listeners/connections/rejoinEvent.js";
-import disconnectEvent from "./listeners/connections/disconnectEvent.js";
-import nameEvent from "./listeners/chatroom/nameEvent.js";
-import messageEvent from "./listeners/chatroom/messageEvent.js";
+import rejoinEvent from "../listeners/connections/rejoinEvent.js";
+import disconnectEvent from "../listeners/connections/disconnectEvent.js";
+import nameEvent from "../listeners/chatroom/nameEvent.js";
+import messageEvent from "../listeners/chatroom/messageEvent.js";
 import { Server } from "socket.io";
 import express from "express";
 import http from "http";
 import cors from "cors";
-import router from "./routes/router.js";
+import router from "../routes/router.js";
 const PORT = process.env.PORT || 4444;
 export const app = express();
 const server = http.createServer(app);
@@ -28,4 +28,8 @@ io.on("connection", socket => {
     messageEvent(socket);
 });
 server.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+const code = generateUniqueCode(activeRoomsMap);
+console.log(code);
+createRoom(code, "Room For Friends");
+console.log(activeRoomsMap);
 //# sourceMappingURL=index.js.map

@@ -1,4 +1,4 @@
-import { io } from "../config/server.js";
+import { io } from "../index.js";
 import activeRoomsMap from "../config/activeRoomsMap.js";
 
 function roomCleanup() {

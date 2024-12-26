@@ -1,7 +1,7 @@
 import { z } from "zod";
 import activeRoomsMap from "../../config/activeRoomsMap.js";
 import updateUserListForClients from "../../rooms/updateUserListForClients.js";
-import { io } from "../../config/server.js";
+import { io } from "../../index.js";
 const nameSchema = z.string().min(1).max(20);
 export default function nameEvent(socket) {
     const id = socket.id;
