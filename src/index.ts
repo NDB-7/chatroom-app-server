@@ -19,8 +19,8 @@ export const io = new Server(server, {
   connectionStateRecovery: {},
 });
 
-app.use(express.json());
 app.use(cors({ origin: "*" }));
+app.use(express.json());
 app.use("/", router);
 
 io.on("connection", socket => {
