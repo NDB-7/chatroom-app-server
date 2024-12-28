@@ -7,5 +7,5 @@ export default function postRoom(req, res) {
 
   createRoom(code, req.body.name);
 
-  res.send(code);
+  res.send({ code });
 }
